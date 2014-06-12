@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"github.com/GaryBoone/GoStats/stats"
 	"math"
+	"sort"
 )
 
 type Estudiante struct {
@@ -78,7 +79,12 @@ func Main() {
 	fmt.Println("Gini algoritmo oficial", GiniTotal(H))
 	Stats(H)
 	
-	Print(H)
+	// Reparto de becas segun el algoritmo oficial
+	AlgoritmoDelPantano(C, H)
+	fmt.Println("Gini algoritmo pantanoso", GiniTotal(H))
+	Stats(H)
+	
+	// Print(H)
 }
 
 func Print(H []Estudiante) {
@@ -116,6 +122,9 @@ func Stats(H []Estudiante) {
 	log.Println("Mean",stats.StatsMean(in))
 }
 
+// AlgoritmoOficial reparte C entre H según la fórmula oficial de las becas
+// para el curso 2013-2014, con alguna simplificación: no tiene en cuenta 
+// las notas, y Rmax es fijo.
 func AlgoritmoOficial(C float64, H []Estudiante) int {
 
 	// Cantidad de estudiantes que no superan el umbral 2 (Rmax) -> S
@@ -158,10 +167,81 @@ func AlgoritmoOficial(C float64, H []Estudiante) int {
 		Cv += H[i].Beca
 	}
 
-	if Cv-Ci > 0.001 {
+	if math.Abs(Cv-Ci) > 0.001 {
 		log.Fatal("AlgoritmoOficial erroneo")
 	}
 
 	return S
 }
 
+// AlgoritmoDelPantano reparte C entre H de forma que el coeficiente Gini
+// sea mínimo.
+func AlgoritmoDelPantano(C float64, H []Estudiante) {
+
+    c := C
+    d := 0.0
+    diff := 0.0
+    level := 0.0
+    var i,j int
+    
+	// Calcula el nivel del agua
+	N := len(H)
+	
+	// Crea un array que podamos ordenar
+	h := make([]float64, len(H))
+
+	for i = 0; i < N; i++ {
+		h[i] = H[i].Renta
+		H[i].Beca = 0
+	}
+	
+	// Ordenamos las rentas de menor a mayor
+	sort.Float64s(h)
+
+    // Vamos llenando
+	for i=1; i < N; i++ {
+		diff = h[i] - h[i-1]	
+		
+		for j=0; j<i; j++ {
+		    if c<diff {
+		        break
+		    }
+		    
+		    h[j] += diff
+		    c -= diff
+		    level = h[i]
+		}
+		
+		if c<diff {
+		    break
+		}
+	}
+	log.Println("Nivel del agua de renta",level)
+	
+	c = C
+	for i=0; i<N; i++ {
+		d = level - H[i].Renta
+		
+		if d<=0 {
+		    continue
+		}
+		
+		if c<d {
+		    H[i].Beca = c
+		    break
+		}
+		
+		H[i].Beca = d
+		c -= d
+	}
+	
+	// Comprueba que la suma de becas es (casi) igual a C
+	Cv := 0.0
+	for i = 0; i <N; i++ {
+		Cv += H[i].Beca
+	}
+	
+	if math.Abs(Cv-C) > 0.001 {
+		log.Fatal("AlgoritmoDelPantano erroneo")
+	}
+}
