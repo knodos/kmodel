@@ -182,7 +182,7 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
     d := 0.0
     diff := 0.0
     level := 0.0
-    var i,j int
+    var i int
     
 	// Calcula el nivel del agua
 	N := len(H)
@@ -198,25 +198,22 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
 	// Ordenamos las rentas de menor a mayor
 	sort.Float64s(h)
 
-    // Vamos llenando
+    // Averiguamos el nivel que podemos llenar hasta acabar con C
 	for i=1; i < N; i++ {
-		diff = h[i] - h[i-1]	
 		
-		for j=0; j<i; j++ {
-		    if c<diff {
-		        break
-		    }
+		// Rectángulo: altura * anchura
+		diff = (h[i] - h[i-1]) * float64(i)	
+		
+	    if c<diff {
+	        break
+	    }
 		    
-		    h[j] += diff
-		    c -= diff
-		    level = h[i]
-		}
-		
-		if c<diff {
-		    break
-		}
+		c -= diff
+		level = h[i]
 	}
-	log.Println("Nivel del agua de renta",level)
+	// El resto lo repartimos
+	level = h[i] + c/float64(i)
+	log.Println("Nivel del agua de renta",level,"resto",c)
 	
 	c = C
 	for i=0; i<N; i++ {
@@ -242,6 +239,6 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
 	}
 	
 	if math.Abs(Cv-C) > 0.001 {
-		log.Fatal("AlgoritmoDelPantano erroneo")
+		log.Fatal("AlgoritmoDelPantano erroneo. Diferencia ",Cv-C)
 	}
 }
