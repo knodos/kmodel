@@ -19,6 +19,9 @@ type Estudiante struct {
 
 	// Beca es obviamente la cantidad asignada por el algoritmo a este estudiante.
 	Beca float64
+	
+	// Nota es la nota que sirve de parámetro en el algoritmo oficial
+	Nota float64
 }
 
 const (
@@ -40,14 +43,22 @@ const (
 
 	// C es la dotación presupuestaria para la parte variable de becas, por persona
 	Cp float64 = 2300.0
+	
+	// Nmed es la nota media de todos los estudiantes. Junto con la desviación
+	// típica se usa para crear una distribución normal de notas.
+	Nmed float64 = 6.0
+	
+	// Sd es la desviación típica de las notas de los estudiantes.
+	Sd float64 = 2.0
+	
+	// N es la cantidad de estudiantes que queremos modelar.
+	N int = 1000
 )
 
 func Main() {
 
 	var i int
-
-	// N es la cantidad de estudiantes que queremos modelar.
-	N := 1000
+	
 	H := make([]Estudiante, N)
 
 	// C es la cantidad total de dinero que vamos a repartir.
@@ -60,31 +71,45 @@ func Main() {
 			H[i].Renta = 0
 		}
 	}
-	fmt.Println("Coeficiente Gini inicial", GiniTotal(H))
-
-	// El dinero necesario para que todos puedan estudiar
-	Cn := 0.0
-	for i := 0; i < N; i++ {
-		c := H[i].Renta - Ce - Rmin
-		if c < 0 {
-			Cn -= c
+	
+	// Reparto aleatorio de notas (distribución normal centrada en Nmed con 
+    // stddev = Sd), limitada entre 0 y 10. 
+    for i = 0; i < N; i++ {
+		H[i].Nota = rand.NormFloat64()*Sd+Nmed
+		if H[i].Nota< 0 {
+		    H[i].Nota = 0.0
+		} else if H[i].Nota>10 {
+		    H[i].Nota = 10.0
 		}
 	}
-	fmt.Println("Dotación necesaria", Cn)
-	fmt.Println("Dotación presupuestada", C)
-	Stats(H)
-
-	// Reparto de becas segun el algoritmo oficial
-	println(AlgoritmoOficial(C, H))
-	fmt.Println("Gini algoritmo oficial", GiniTotal(H))
-	Stats(H)
 	
-	// Reparto de becas segun el algoritmo oficial
+	println("ANTES DE LAS BECAS")	
+	Datos(H)
+	
 	AlgoritmoDelPantano(C, H)
-	fmt.Println("Gini algoritmo pantanoso", GiniTotal(H))
-	Stats(H)
+	Datos(H)
 	
-	// Print(H)
+	AlgoritmoEmpujar(C, H)
+	Datos(H)
+	
+	AlgoritmoOficial(C, H)
+	Datos(H)
+	
+	for i:=0; i<100; i++ {
+	    AlgoritmoDelPantano(C, H) // AlgoritmoOficialConNotas(C, H)
+	    Datos(H)
+	
+	    // Simulamos una relación sencilla entre recursos y notas, y vemos
+	    // el coeficiente de Pearson.
+	    Examen(H)
+	    Datos(H)
+	
+	    // Tambien hay una relación entre notas e ingresos (a medio y largo plazo)
+	    // Queda contrarrestado este hecho por el algoritmo? 	
+	    // Repetimos un año más el reparto de becas y vemos
+	    EvolucionRenta(H)
+	    Datos(H)
+	}
 }
 
 func Print(H []Estudiante) {
@@ -127,6 +152,8 @@ func Stats(H []Estudiante) {
 // las notas, y Rmax es fijo.
 func AlgoritmoOficial(C float64, H []Estudiante) int {
 
+    fmt.Println("ALGORITMO OFICIAL, SIN NOTAS")
+    
 	// Cantidad de estudiantes que no superan el umbral 2 (Rmax) -> S
 	N := len(H)
 	S := 0
@@ -134,6 +161,7 @@ func AlgoritmoOficial(C float64, H []Estudiante) int {
 		if H[i].Renta < Rmax {
 			S++
 		}
+		H[i].Beca = 0
 	}
 
 	// Reparto de la cantidad fija de 60 euros
@@ -168,8 +196,12 @@ func AlgoritmoOficial(C float64, H []Estudiante) int {
 	}
 
 	if math.Abs(Cv-Ci) > 0.001 {
-		log.Fatal("AlgoritmoOficial erroneo")
+		log.Fatal("  [!] Algoritmo erroneo")
 	}
+	
+	// Cuantos estudiantes pueden estudiar
+	PuedenEstudiar(H)
+	Pobres(H)
 
 	return S
 }
@@ -178,17 +210,16 @@ func AlgoritmoOficial(C float64, H []Estudiante) int {
 // sea mínimo.
 func AlgoritmoDelPantano(C float64, H []Estudiante) {
 
+    fmt.Println("ALGORITMO DEL PANTANO")
+    
     c := C
     d := 0.0
     diff := 0.0
     level := 0.0
     var i int
-    
-	// Calcula el nivel del agua
-	N := len(H)
 	
 	// Crea un array que podamos ordenar
-	h := make([]float64, len(H))
+	h := make([]float64,N)
 
 	for i = 0; i < N; i++ {
 		h[i] = H[i].Renta
@@ -209,11 +240,10 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
 	    }
 		    
 		c -= diff
-		level = h[i]
 	}
 	// El resto lo repartimos
-	level = h[i] + c/float64(i)
-	log.Println("Nivel del agua de renta",level,"resto",c)
+	level = h[i-1] + c/float64(i)
+	fmt.Println("  Renta mínima conseguida",level,"resto",c)
 	
 	c = C
 	for i=0; i<N; i++ {
@@ -223,13 +253,11 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
 		    continue
 		}
 		
-		if c<d {
-		    H[i].Beca = c
-		    break
-		}
-		
 		H[i].Beca = d
 		c -= d
+		if c<0.1 {
+		    break;
+		}
 	}
 	
 	// Comprueba que la suma de becas es (casi) igual a C
@@ -239,6 +267,297 @@ func AlgoritmoDelPantano(C float64, H []Estudiante) {
 	}
 	
 	if math.Abs(Cv-C) > 0.001 {
-		log.Fatal("AlgoritmoDelPantano erroneo. Diferencia ",Cv-C)
+		log.Fatal("  [!] Algoritmo erroneo. Diferencia ",Cv-C)
+	}
+	
+	// Comprueba que todos están por encima del minimo
+	for i = 0; i <N; i++ {
+	    if H[i].Renta + H[i].Beca < level {
+		    log.Fatal("  [!] Algoritmo erroneo. Hay rentas no niveladas")
+		}
+	}
+	
+	// Cuantos estudiantes pueden estudiar
+	PuedenEstudiar(H)
+	Pobres(H)
+}
+
+// AlgoritmoOficialConNotas es una simulación de la realimentación que las notas
+// pueden tener sobre la renta de los estudiantes.
+//
+// Se asigna la beca en función de la renta y de las notas. Aquellos estudiantes
+// con notas bajas pueden no recibir beca y no tener la oportunidad de seguir
+// estudiando, con lo que se genera un circulo vicioso.
+func AlgoritmoOficialConNotas (C float64, H []Estudiante) {
+
+    var i int
+    
+    N := len(H)
+
+    fmt.Println("ALGORITMO OFICIAL, CON NOTAS")
+	
+	// Cantidad de estudiantes que no superan el umbral 2 (Rmax) -> S	
+	S := 0
+	for i = 0; i < N; i++ {
+		if H[i].Renta < Rmax {
+			S++
+		}
+		H[i].Beca = 0 // reset beca
+	}
+	
+	// Calcula Nmax, la nota media del mejor 10% = 0.1 S
+	Nmax := NotaMediaMejor (H, S/10)
+	//log.Println("Nmax",Nmax)
+
+	// Reparto de la cantidad fija de 60 euros
+	Ci := C // usado para comparar luego
+	C -= 60 * float64(S)
+
+	// Calcula sumatorio de k = K
+	K := 0.0
+	for i = 0; i < N; i++ {
+		if H[i].Renta >= Rmax {
+			continue
+		}
+
+		K += H[i].Nota / Nmax * (1 - H[i].Renta/Rmax)
+	}
+
+	// Calcula el importe por becario
+	for i = 0; i < N; i++ {
+		if H[i].Renta >= Rmax {
+			continue
+		}
+
+		k := H[i].Nota / Nmax * (1 - H[i].Renta/Rmax)
+		H[i].Beca = C*k/K + 60
+	}
+
+	// Verifica que la suma da el total
+	Cv := 0.0
+	for i = 0; i < N; i++ {
+		Cv += H[i].Beca
+	}
+
+	if math.Abs(Cv-Ci) > 0.001 {
+		log.Fatal("  Algoritmo erroneo, por ",Cv-Ci)
+	}
+	
+	// Cuantos estudiantes pueden estudiar
+	PuedenEstudiar(H)
+	Pobres(H)
+}
+
+func AlgoritmoEmpujar (C float64, H []Estudiante) {
+
+    var i int
+    
+    N := len(H)
+
+    fmt.Println("ALGORITMO EMPUJAR")
+    
+    // Crea un array que podamos ordenar
+	h := make([]float64, N)
+
+	for i = 0; i < N; i++ {
+		h[i] = H[i].Renta
+		H[i].Beca = 0
+	}
+	
+	// Ordenamos las rentas de menor a mayor
+	sort.Float64s(h)
+	
+	// Damos dinero a los que menos les falta para llegar a Rmin + Ce
+	// Averigua que renta mínima vamos a apoyar
+	c := C
+
+	for i = N-1; i >=0; i-- {
+	    d := (Rmin+Ce) - h[i]
+	    if d>0 {
+	        if c<d {
+	            break
+	        }
+		    c -= d    
+		}
+	}
+	
+	if i<0 {
+	    i = 0
+	    //println("  Reparto para todos")
+	    c = C
+	} else {	    
+	    //fmt.Println("  Apoyamos por encima de",h[i+1],c)
+	    c = h[i+1]
+	}
+	
+	for i=0; i < N; i++ {
+	    if H[i].Renta<c {
+	        continue
+	    }
+	    d := (Rmin+Ce) - H[i].Renta
+	    if d>0 {
+		    H[i].Beca = d
+		}
+	}
+
+	// Verifica que la suma da el total
+	Cv := 0.0
+	for i = 0; i < N; i++ {
+		Cv += H[i].Beca
+	}
+
+	if math.Abs(Cv-C) > 0.001 {
+		fmt.Println("  [!] Algoritmo erroneo, por ",Cv-C)
+	}
+	
+	// Cuantos estudiantes pueden estudiar
+	PuedenEstudiar(H)
+	Pobres(H)
+}
+
+func Pobres(H []Estudiante) int {
+    var i int
+    
+    N := len(H)
+
+    n := 0
+    p := 0.0
+	for i = 0; i < N; i++ {
+		if H[i].Renta + H[i].Beca < Rmin {
+		    n++
+		    p += Rmin - (H[i].Renta + H[i].Beca)
+		}
+	}
+	return n
+}
+
+func PuedenEstudiar(H []Estudiante) int {
+    n := 0
+    b := 0.0
+	for i := 0; i < len(H); i++ {
+		if H[i].Renta + H[i].Beca >= Rmin + Ce {
+			n++
+		}
+		b += H[i].Beca
+	}
+	return n
+}
+
+func Cobertura (H []Estudiante, lev float64) (float64,float64) {
+
+    var i int
+    
+    N := len(H)
+    
+    // Crea un array que podamos ordenar
+	h := make([]float64, N)
+
+	for i = 0; i < N; i++ {
+		h[i] = H[i].Renta + H[i].Beca
+	}
+	return kmath.Cover(h,lev)
+}
+
+func NotaMediaMejor (H []Estudiante, n int) float64 {
+
+    var i int
+    
+    N := len(H)
+    
+    // Crea un array que podamos ordenar
+	h := make([]float64, N)
+
+	for i = 0; i < N; i++ {
+		h[i] = H[i].Nota
+	}
+	
+	// Ordenamos las notas de menor a mayor
+	sort.Float64s(h)
+	
+	// Calculamos la media de los mejores n estudiantes
+	m := 0.0
+    for i = N-n; i < N; i++ {
+		m += h[i]
+	}
+	
+	m /= float64(n)
+	
+	// Cuantos estudiantes igualan o superan la nota media ?
+	for i = N-1; i >=0; i-- {
+		if h[i]<m {
+		    break
+		}
+	}
+	
+	fmt.Printf("  De %d estudiantes, %d superan la nota media mejor (%f)\n",N,N-i,m)
+	
+	return m
+}
+
+// Corr devuelve el coeficiente de correlación Pearson entre becas y notas
+func Corr(H []Estudiante) (float64, error) {
+
+    // Crea arrays 
+	r := make([]float64, N)
+	e := make([]float64, N)
+
+	for i := 0; i < N; i++ {
+		r[i] = H[i].Renta
+	}
+	
+	for i := 0; i < N; i++ {
+		e[i] = H[i].Nota
+	}
+	
+	return kmath.Pearson(r,e)
+}
+
+func Datos(H []Estudiante) {
+
+    ade, aue := Cobertura(H,Rmin+Ce)
+    ad, au := Cobertura(H,Rmin)
+    
+    gi := GiniTotal(H)
+    ne := PuedenEstudiar(H)
+    np := Pobres(H)
+    c,_ := Corr(H)
+    
+    fmt.Printf("%f, %f, %f, %f, %f, %d, %d, %f\n",ade,aue,ad,au,gi,ne,np,c)
+}
+
+// Nueva nota = nota anterior +/-2 random, +/- 1 renta
+// Rmin + Ce es la referencia para la renta
+func Examen(H []Estudiante) {
+
+    for i := 0; i < N; i++ {
+        r := H[i].Renta / (Rmin+Ce)
+        if r>2 {
+            r = 2
+        }     
+        k := 1 + (rand.Float64()-0.5) / 5 * 2  + (r-1) * 0.1
+		H[i].Nota *= k
+// fmt.Println("factor nota",k, H[i].Nota)			
+	
+		if H[i].Nota<0 {
+		    H[i].Nota = 0
+		} else if H[i].Nota > 10 {
+		    H[i].Nota = 10
+		}
 	}
 }
+
+// Nueva renta = renta anterior -10% con nota 0 +10% con 10, más un factor
+// aleatorio de 10%
+func EvolucionRenta (H []Estudiante) {
+
+    for i := 0; i < N; i++ {
+
+        k := 1 + (H[i].Nota - 5)/50 + (rand.Float64()-0.5)/5
+		H[i].Renta *= k
+// fmt.Println("factor renta",k, H[i].Renta)		
+		if H[i].Renta<0 {
+		    H[i].Renta = 0
+		} 
+	}
+}
+
