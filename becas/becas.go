@@ -2,7 +2,7 @@ package becas
 
 import (
 	"fmt"
-	"kmath"
+	"github.com/knodos/kmath"
 	"log"
 	"math/rand"
 	"github.com/GaryBoone/GoStats/stats"

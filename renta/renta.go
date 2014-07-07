@@ -2,7 +2,7 @@ package renta
 
 import (
 	"fmt"
-	"kmath"
+	"github.com/knodos/kmath"
 	"math"
 )
 
