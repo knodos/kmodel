@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kmodel/becas"
+	"github.com/kmodel/becas"
 )
 
 func main() {

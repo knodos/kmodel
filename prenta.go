@@ -1,7 +1,7 @@
 package main
 
 import (
-	"kmodel/renta"
+	"github.com/kmodel/renta"
 )
 
 func main() {
