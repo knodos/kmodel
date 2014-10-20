@@ -3,11 +3,13 @@ package becas
 import (
 	"fmt"
 	"github.com/knodos/kmath"
+	"github.com/knodos/kmodel/graphics"
 	"log"
 	"math/rand"
 	"github.com/GaryBoone/GoStats/stats"
 	"math"
 	"sort"
+	"strconv"
 )
 
 type Estudiante struct {
@@ -96,7 +98,8 @@ func Main() {
 	Datos(H)
 	
 	for i:=0; i<100; i++ {
-	    AlgoritmoDelPantano(C, H) // AlgoritmoOficialConNotas(C, H)
+	    //AlgoritmoDelPantano(C, H) 
+	    AlgoritmoOficialConNotas(C, H)
 	    Datos(H)
 	
 	    // Simulamos una relación sencilla entre recursos y notas, y vemos
@@ -111,6 +114,89 @@ func Main() {
 	    Datos(H)
 	}
 }
+
+func Evolucion() {
+    var i int
+	
+	H := make([]Estudiante, N)
+
+	// C es la cantidad total de dinero que vamos a repartir.
+	C := Cp * float64(N)
+
+	// Asigna ingresos (anuales) a cada estudiante.
+	for i = 0; i < N; i++ {
+		H[i].Renta = math.Exp(rand.NormFloat64()*0.6+1)*2870
+		if H[i].Renta < 0.0 {
+			H[i].Renta = 0
+		}
+	}
+	
+	// Reparto aleatorio de notas (distribución normal centrada en Nmed con 
+    // stddev = Sd), limitada entre 0 y 10. 
+    for i = 0; i < N; i++ {
+		H[i].Nota = rand.NormFloat64()*Sd+Nmed
+		if H[i].Nota< 0 {
+		    H[i].Nota = 0.0
+		} else if H[i].Nota>10 {
+		    H[i].Nota = 10.0
+		}
+	}
+	
+	println("ANTES DE LAS BECAS")	
+	Datos(H)
+	
+	for i:=1; i<11; i++ {
+	    GraficoRN(H,i)
+	    GraficoN(H,i)
+	    
+	    gi, co, pe := Datos(H)
+
+	    AlgoritmoDelPantano(C, H) // AlgoritmoOficialConNotas(C, H)
+
+	    // Simulamos una relación sencilla entre recursos y notas, y vemos
+	    // el coeficiente de Pearson.
+	    Examen(H)
+	}
+}
+
+func GraficoRN(H []Estudiante, n int) {
+    y := make([]float64, N)
+
+	for i := 0; i < len(H); i++ {
+		y[i] = H[i].Renta + H[i].Beca
+	}
+
+    x := make([]float64, N)
+    
+    for i := 0; i < len(H); i++ {
+		x[i] = H[i].Nota
+	}
+	
+	s := strconv.Itoa(n)
+	
+	graphics.DotsPaint(x,y,"Renta vs Notas / Año "+s,"Notas","Renta+Beca","rn"+s+".png")
+}
+
+func GraficoN(H []Estudiante, n int) {
+    x := make([]float64, N)
+
+	for i := 0; i < len(H); i++ {
+		x[i] = float64(i)
+	}
+
+    y := make([]float64, N)
+    
+    for i := 0; i < len(H); i++ {
+		y[i] = H[i].Nota
+	}
+	
+	sort.Float64s(y)
+	
+	s := strconv.Itoa(n)
+	
+	graphics.DotsPaint(x,y,"Notas / Año "+s,"Estudiante[i]","Nota","n"+s+".png")
+}
+
 
 func Print(H []Estudiante) {
 
@@ -512,7 +598,8 @@ func Corr(H []Estudiante) (float64, error) {
 	return kmath.Pearson(r,e)
 }
 
-func Datos(H []Estudiante) {
+// Return Gini, Cobertura y Pearson
+func Datos(H []Estudiante) (float64, float64, float64) {
 
     ade, aue := Cobertura(H,Rmin+Ce)
     ad, au := Cobertura(H,Rmin)
@@ -523,6 +610,7 @@ func Datos(H []Estudiante) {
     c,_ := Corr(H)
     
     fmt.Printf("%f, %f, %f, %f, %f, %d, %d, %f\n",ade,aue,ad,au,gi,ne,np,c)
+    return gi, ade, c 
 }
 
 // Nueva nota = nota anterior +/-2 random, +/- 1 renta
