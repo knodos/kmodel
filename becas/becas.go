@@ -91,12 +91,16 @@ func Main() {
 	AlgoritmoDelPantano(C, H)
 	Datos(H)
 	
-	AlgoritmoEmpujar(C, H)
+	//AlgoritmoEmpujar(C, H)
+	//Datos(H)
+	
+	AlgoritmoOficialConNotas(C, H)
 	Datos(H)
 	
 	AlgoritmoOficial(C, H)
 	Datos(H)
 	
+	/*
 	for i:=0; i<100; i++ {
 	    //AlgoritmoDelPantano(C, H) 
 	    AlgoritmoOficialConNotas(C, H)
@@ -112,7 +116,7 @@ func Main() {
 	    // Repetimos un año más el reparto de becas y vemos
 	    EvolucionRenta(H)
 	    Datos(H)
-	}
+	} */
 }
 
 func Evolucion() {
@@ -148,8 +152,7 @@ func Evolucion() {
 	for i:=1; i<11; i++ {
 	    GraficoRN(H,i)
 	    GraficoN(H,i)
-	    
-	    gi, co, pe := Datos(H)
+
 
 	    AlgoritmoDelPantano(C, H) // AlgoritmoOficialConNotas(C, H)
 
@@ -602,14 +605,14 @@ func Corr(H []Estudiante) (float64, error) {
 func Datos(H []Estudiante) (float64, float64, float64) {
 
     ade, aue := Cobertura(H,Rmin+Ce)
-    ad, au := Cobertura(H,Rmin)
+    // ad, au := Cobertura(H,Rmin)
     
     gi := GiniTotal(H)
     ne := PuedenEstudiar(H)
     np := Pobres(H)
     c,_ := Corr(H)
     
-    fmt.Printf("%f, %f, %f, %f, %f, %d, %d, %f\n",ade,aue,ad,au,gi,ne,np,c)
+    fmt.Printf("k=%f, ke=%f, G=%f, %d, %d, %f\n",ade,aue,gi,ne,np,c)
     return gi, ade, c 
 }
 
